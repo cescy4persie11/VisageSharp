@@ -22,18 +22,18 @@ namespace VisageSharp
     {
         private static bool _loaded;
         private static Hero _me;
-        public static IEnumerable<TrackingProjectile> myProjectiles;
-        public static bool myAttackInAir;
+        //public static IEnumerable<TrackingProjectile> myProjectiles;
+        //public static bool myAttackInAir;
         public static Ability _Q;
         public static Ability _W;
         public static Ability _E;
         public static Ability _R;
-        private static int familiarAttackDmg;
-        private static uint Rlevel;
-        private static bool inStone;
+        //private static int familiarAttackDmg;
         private static Hero killTarget;
         private static ParticleEffect meToTargetParticleEffect;
         private static int autoAttackMode = 2;
+        private static bool familiarAttacked;
+        //private static bool hasLens;
 
 
         private static readonly string Ver = Assembly.GetExecutingAssembly().GetName().Version.ToString();
@@ -57,6 +57,7 @@ namespace VisageSharp
             Game.OnUpdate += Game_OnUpdate_AutoFamaliarLastHit;
             Game.OnUpdate += Game_OnUpdate_NukeOn;
             Game.OnUpdate += Game_OnUpdate_SoloKill;
+            Game.OnUpdate += Game_OnUpdate_FamiliarControl;
         }
 
         private static void Player_OnExecuteAction(Player sender, ExecuteOrderEventArgs args)
@@ -133,20 +134,28 @@ namespace VisageSharp
         private static void Drawing_OnDraw_familiarLastHit(EventArgs args)
         {
             if (!_loaded) return;
-            var Familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.IsAlive && x.Team == _me.Team);
+            var Familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
 
             if (Menu.Item("Auto Familar Lasthit").GetValue<KeyBind>().Active)
             {
-                var startPos = new Vector2(Drawing.Width - 85, 150);
+                var startPos = new Vector2(Drawing.Width - 75, 150);
                 var size = new Vector2(150, 40);
-                Drawing.DrawText("Last Hit", startPos + new Vector2(10, 15), new Vector2(20), new Color(0, 155, 255),
-                    FontFlags.AntiAlias | FontFlags.DropShadow | FontFlags.Additive | FontFlags.Custom |
-                    FontFlags.StrikeOut);
+                if (familiarAttacked)
+                {
+                    Drawing.DrawText("Last Hit(" + Utils.KeyToText(AutoLastHit.GetValue<KeyBind>().Key) + ")", startPos + new Vector2(-15, 15), new Vector2(20), new Color(255, 0, 0),
+                        FontFlags.AntiAlias | FontFlags.DropShadow | FontFlags.Additive | FontFlags.Custom |
+                        FontFlags.StrikeOut);
+                }
+                else {
+                    Drawing.DrawText("Last Hit(" + Utils.KeyToText(AutoLastHit.GetValue<KeyBind>().Key) + ")", startPos + new Vector2(-15, 15), new Vector2(20), new Color(0, 155, 255),
+                        FontFlags.AntiAlias | FontFlags.DropShadow | FontFlags.Additive | FontFlags.Custom |
+                        FontFlags.StrikeOut);
+                }
                 if(Familiars != null)
                 {
                     var name = "materials/ensage_ui/modifier_textures/visage_summon_familiars.vmat";
                     size = new Vector2(50, 50);
-                    Drawing.DrawRect(startPos + new Vector2(-50,0), size,
+                    Drawing.DrawRect(startPos + new Vector2(-70,0), size,
                         Drawing.GetTexture(name));
                 }
             }
@@ -161,9 +170,9 @@ namespace VisageSharp
             {
                 var startPos = new Vector2(Drawing.Width - 100, 250);
                 var size = new Vector2(90, 90);
-                Drawing.DrawRect(startPos, size, new Color(0, 0, 0, 100));
-                Drawing.DrawRect(startPos, size, new Color(0, 0, 0, 255), true);
-                Drawing.DrawText("Nuke On", startPos + new Vector2(10, 10), new Vector2(20), new Color(0, 155, 255),
+                //Drawing.DrawRect(startPos, size, new Color(0, 0, 0, 100));
+                //Drawing.DrawRect(startPos, size, new Color(0, 0, 0, 255), true);
+                Drawing.DrawText("Nuke On(" + Utils.KeyToText(AutoSoulAssump.GetValue<KeyBind>().Key) + ")", startPos + new Vector2(0, 10), new Vector2(20), new Color(0, 155, 255),
                     FontFlags.AntiAlias | FontFlags.DropShadow | FontFlags.Additive | FontFlags.Custom |
                     FontFlags.StrikeOut);
                 if (Familiars != null)
@@ -224,7 +233,7 @@ namespace VisageSharp
                         var size = new Vector2(90, 90);
                         Drawing.DrawRect(startPos, size, new Color(0, 0, 0, 100));
                         Drawing.DrawRect(startPos, size, new Color(0, 0, 0, 255), true);
-                        Drawing.DrawText("Combo", startPos + new Vector2(10, 10), new Vector2(20), new Color(0, 155, 255),
+                        Drawing.DrawText("Combo(" + Utils.KeyToText(SoloKill.GetValue<KeyBind>().Key) + ")", startPos + new Vector2(8, 10), new Vector2(20), new Color(0, 155, 255),
                             FontFlags.AntiAlias | FontFlags.DropShadow | FontFlags.Additive | FontFlags.Custom |
                             FontFlags.StrikeOut);
                         if (killTarget != null)
@@ -298,7 +307,7 @@ namespace VisageSharp
                 AutoLastHit.SetValue(new KeyBind(AutoLastHit.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
             }
 
-            var hasLens = _me.FindItem("item_aether_lens") != null;
+            var hasLens = _me.Inventory.Items.Any(x => x.Name == "item_aether_lens");
             var _Q = _me.Spellbook.SpellQ;
             var _W = _me.Spellbook.SpellW;
             var _R = _me.Spellbook.SpellR;
@@ -308,7 +317,11 @@ namespace VisageSharp
             {
                 killTarget = _me.ClosestToMouseTarget(1000);
             }
-            if (killTarget == null || !killTarget.IsValid || !killTarget.IsAlive) return;
+            if (killTarget == null || !killTarget.IsValid || !killTarget.IsAlive)
+            {
+                SoloKill.SetValue(new KeyBind(SoloKill.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+                return;
+            }
 
             //grave chill, birds attacking, stone, soul assumption, resummon
             //var familiarNearBy = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar
@@ -317,7 +330,7 @@ namespace VisageSharp
             //grave chill
             #region grave chill
 
-            if (killTarget.Distance2D(_me) <= 600 + (hasLens ? 180 : 0) && _Q.CanBeCasted() && !killTarget.IsMagicImmune())
+            if (_me.IsAlive && killTarget.Distance2D(_me) <= 600 + (hasLens ? 180 : 0) && _Q.CanBeCasted() && !killTarget.IsMagicImmune())
             {
                 if (Utils.SleepCheck("gravechill"))
                 {
@@ -327,17 +340,17 @@ namespace VisageSharp
             }
             else
             {
-                if (killTarget.Distance2D(_me) >= 600 + (hasLens ? 180 : 0) && _Q.CanBeCasted() && !killTarget.IsMagicImmune())
+                if (_me.IsAlive && killTarget.Distance2D(_me) >= 600 + (hasLens ? 180 : 0) && _Q.CanBeCasted() && !killTarget.IsMagicImmune())
                 {
                     if (Utils.SleepCheck("Orbwalk"))
                     {
                         _me.Move(killTarget.Position);
                         Utils.Sleep(100, "Orbwalk");
                     }
-                }else if (Orbwalking.AttackOnCooldown())
+                }else if (_me.IsAlive && Orbwalking.AttackOnCooldown())
                 {
                     Console.WriteLine("orbwalking");
-                    if (Utils.SleepCheck("Orbwalk"))
+                    if (_me.IsAlive && Utils.SleepCheck("Orbwalk"))
                     {
                         //Orbwalking.Orbwalk(killTarget, 0, 0, false, true);
                         Utils.Sleep(100, "Orbwalk");
@@ -345,9 +358,9 @@ namespace VisageSharp
                 }
                 else
                 {
-                    if (Utils.SleepCheck("Orbwalk"))
+                    if (_me.IsAlive && Utils.SleepCheck("Orbwalk"))
                     {
-                        Orbwalking.Attack(killTarget, false);
+                        //Orbwalking.Attack(killTarget, false);
                         Utils.Sleep(100, "Orbwalk");
                     }                 
                 }
@@ -361,7 +374,7 @@ namespace VisageSharp
                 //OrbAttack
             }
             else {
-                if(killTarget.Health <= getSoulAssumptionDmg(_me, killTarget, hasLens))
+                if(_me.IsAlive && killTarget.Health <= getSoulAssumptionDmg(_me, killTarget, hasLens))
                 {
                     if (Utils.SleepCheck("soulassumption"))
                     {
@@ -373,7 +386,7 @@ namespace VisageSharp
                         Utils.Sleep(200, "soulassumption");
                     }
                 }
-                else if (soulAssumption.StackCount == 2 + _W.Level)
+                else if (_me.IsAlive && soulAssumption.StackCount == 2 + _W.Level)
                 {
                     if (Utils.SleepCheck("soulassumption"))
                     {
@@ -414,7 +427,7 @@ namespace VisageSharp
                         {
                             f.Move(f.Spellbook.SpellQ.GetPrediction(killTarget));
                         }
-                        else if(f.Distance2D(killTarget) <= 100 && f.Spellbook.SpellQ.CanBeCasted())
+                        else if(f.Distance2D(killTarget) <= 100 && f.Spellbook.SpellQ.CanBeCasted() && _R.Cooldown <= 200 - _R.Level * 20 - 5)
                         {
                             f.Spellbook.SpellQ.UseAbility();
                         }
@@ -453,12 +466,13 @@ namespace VisageSharp
             {
                 return;
             }
-            var familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.IsAlive && x.Team == _me.Team);
+            //familiarAttacked = false;
+            var familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
             if (familiars == null) return;
             var _familar = familiars.FirstOrDefault();
             if(_familar == null) return;
-
-            if(autoAttackMode != 0)
+            
+            if (autoAttackMode != 0)
             {
                 autoAttackMode = 0;
                 Game.ExecuteCommand("dota_player_units_auto_attack_mode " + autoAttackMode);
@@ -490,7 +504,6 @@ namespace VisageSharp
             //var nearestTower = ObjectManager.GetEntities<Unit>().Where(_x => _x.ClassID == ClassID.CDOTA_BaseNPC_Tower && _x.Team != _me.Team && _x.IsAlive);
             var AnyoneAttackingMe = ObjectManager.TrackingProjectiles.Any(x => x.Target.Name.Equals(_familar.Name));
             
-
 
             //if no ally creeps nearby, go follow the nearst ally creeps
             var anyAllyCreepsAround = ObjectManager.GetEntities<Unit>().Any(_x =>
@@ -668,6 +681,68 @@ namespace VisageSharp
 
         }
 
+        private static void Game_OnUpdate_FamiliarControl(EventArgs args)
+        {
+            _me = ObjectManager.LocalHero;
+            #region standard checks for loader and in-game status
+            if (!_loaded)
+            {
+                if (!Game.IsInGame || _me == null || _me.ClassID != ClassID.CDOTA_Unit_Hero_Visage)
+                {
+                    return;
+                }
+                _loaded = true;
+                Console.Write("VisageSharp Loaded");
+            }
+
+            if (!Game.IsInGame || _me == null)
+            {
+                _loaded = false;
+                return;
+            }
+            if (Game.IsPaused) return;
+            #endregion
+
+            var familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
+            if (familiars == null) return;
+            var _familar = familiars.FirstOrDefault();
+            if (_familar == null) return;
+            // auto dodge when Hero attacks
+            var AnyRangedHeroAttackingMe = ObjectManager.TrackingProjectiles.Any(x => x.Target.Name.Equals(_familar.Name) && ObjectManager.GetEntities<Hero>().Any(y => y.Team != _me.Team && y.Name == x.Source.Name));
+            // if hero attacking Me
+            if (AnyRangedHeroAttackingMe || ObjectManager.GetEntities<Hero>().Any(x => x.IsAttacking() && x.Distance2D(_familar) <= x.AttackRange && x.Team != _me.Team && x.IsMelee))
+            {
+                familiarAttacked = true;
+                // go to the closet tower and disable auto last hit
+                var ClosestAllyTower = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_BaseNPC_Tower
+                                                                                    && x.Team == _me.Team
+                                                                                    ).OrderBy(y => y.Distance2D(_familar))
+                                                                                   .FirstOrDefault();
+                if (ClosestAllyTower == null)
+                {
+                    return;
+                }
+                else
+                {
+                    if (Utils.SleepCheck("move"))
+                    {
+                        foreach (var f in familiars)
+                        {
+
+                            if (f.CanMove())
+                            {
+                                f.Follow(ClosestAllyTower);
+                            }
+
+                        }
+                        Utils.Sleep(100, "move");
+                    }
+                    AutoLastHit.SetValue(new KeyBind(AutoLastHit.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+                    return;
+                }
+            }
+        }
+
         private static void Game_OnUpdate_Infos(EventArgs args)
         {
             _me = ObjectManager.LocalHero;
@@ -713,21 +788,19 @@ namespace VisageSharp
             if (Game.IsPaused) return;
             #endregion
 
-            var hasLens = _me.FindItem("item_aether_lens") != null;
+            
+                
 
-            if (!Menu.Item("AutoSoulAssump").GetValue<KeyBind>().Active)
+            if (!Menu.Item("AutoSoulAssump").GetValue<KeyBind>().Active || !_me.IsAlive)
             {
                 return;
             }
 
+            var hasLens = _me.FindItem("item_aether_lens") != null;
+            //var hasLens = true;
+            //Console.WriteLine("has lens" + _me.HasItem(ClassID.CDOTA_Item_Aether_Lens));
             _W = _me.Spellbook.SpellW;
-            foreach (var f in _me.Modifiers)
-            {
-                Console.WriteLine("modifier name + " + f.Name);
-                Console.WriteLine("modifier name + " + f.StackCount);
-                Console.WriteLine("my magic resis is + " + _me.MagicDamageResist);
-                Console.WriteLine("my dmg resis is + " + _me.DamageResist);
-            }
+           
 
             var NearbyEnemy = ObjectManager.GetEntities<Hero>().Where(x => !x.IsMagicImmune() && x.IsAlive
                                                                            && !x.IsIllusion && x.Team != _me.Team
