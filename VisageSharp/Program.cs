@@ -33,6 +33,10 @@ namespace VisageSharp
         private static ParticleEffect meToTargetParticleEffect;
         private static int autoAttackMode = 2;
         private static bool familiarAttacked;
+        private static bool FollowHasLock;
+        private static bool LasthitHasLock;
+        private static bool FamiliarBeingAttackedDrawingEn;
+        private static bool Lck;
         //private static bool hasLens;
 
 
@@ -41,28 +45,33 @@ namespace VisageSharp
         private static readonly MenuItem AutoLastHit = new MenuItem("Auto Familar Lasthit", "Auto Familar Lasthit");
         private static readonly MenuItem AutoSoulAssump = new MenuItem("AutoSoulAssump", "AutoSoulAssump");
         private static readonly MenuItem SoloKill = new MenuItem("SoloKill", "SoloKill");
+        private static readonly MenuItem FamiliarFollow = new MenuItem("FamiliarFollow", "FamiliarFollow");
 
         static void Main(string[] args)
         {
             Menu.AddItem(AutoLastHit.SetValue(new KeyBind('W', KeyBindType.Toggle)));
-            Menu.AddItem(AutoSoulAssump.SetValue(new KeyBind('D', KeyBindType.Toggle, true)));
-            Menu.AddItem(SoloKill.SetValue(new KeyBind('F', KeyBindType.Toggle)));
+            Menu.AddItem(AutoSoulAssump.SetValue(new KeyBind('E', KeyBindType.Toggle, true)));
+            Menu.AddItem(SoloKill.SetValue(new KeyBind('D', KeyBindType.Toggle)));
             Menu.AddItem(new MenuItem("LockTarget", "Lock Target in Combo").SetValue(true).SetTooltip("This will lock the target while in combo"));
+            Menu.AddItem(FamiliarFollow.SetValue(new KeyBind('X', KeyBindType.Toggle, true)));
             Menu.AddToMainMenu();
             Drawing.OnDraw += Drawing_OnDraw_familiarLastHit;
             Drawing.OnDraw += Drawing_OnDraw_AutoSoulAssump;
             Drawing.OnDraw += Drawing_OnDraw_SoloKill;
+            Drawing.OnDraw += Drawing_OnDraw_Follow;
             Game.OnUpdate += Game_OnUpdate_Infos;
             Player.OnExecuteOrder += Player_OnExecuteAction;
             Game.OnUpdate += Game_OnUpdate_AutoFamaliarLastHit;
             Game.OnUpdate += Game_OnUpdate_NukeOn;
             Game.OnUpdate += Game_OnUpdate_SoloKill;
             Game.OnUpdate += Game_OnUpdate_FamiliarControl;
+            Game.OnUpdate += Game_OnUpdate_Follow;
         }
 
         private static void Player_OnExecuteAction(Player sender, ExecuteOrderEventArgs args)
         {
-            if(autoAttackMode != 2)
+            var _me = ObjectManager.LocalHero;
+            if (autoAttackMode != 2)
             {
                 autoAttackMode = 2;
                 Game.ExecuteCommand("dota_player_units_auto_attack_mode " + autoAttackMode);
@@ -71,14 +80,23 @@ namespace VisageSharp
 
             if (!_me.IsAlive)
             {
-                SoloKill.SetValue(new KeyBind(SoloKill.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+                //SoloKill.SetValue(new KeyBind(SoloKill.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
                 AutoSoulAssump.SetValue(new KeyBind(AutoSoulAssump.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
             }
+
+            var familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
+            var EnemyNearby = ObjectManager.GetEntities<Hero>().Where(x => x.IsAlive
+                                                                          && x.Team != _me.Team
+                                                                          && x.Distance2D(_me) <= 600);
+            var AnyfamiliarNearby = ObjectManager.GetEntities<Unit>().Any(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar
+                                                                          && x.IsAlive && x.IsAlive && x.Team == _me.Team
+                                                                          && x.Distance2D(_me) <= 1000);
             switch (args.Order)
             {
 
                 case Order.AttackTarget:
                     {
+                        
                         break;
                     }
                 case Order.AttackLocation:
@@ -100,6 +118,24 @@ namespace VisageSharp
                     }
                 case Order.MoveLocation:
                     {
+                        if (EnemyNearby.Count() == 0)
+                        {
+                            //Console.WriteLine("enemyNearbyNull");
+                            if (Menu.Item("FamiliarFollow").GetValue<KeyBind>().Active && familiars != null && AnyfamiliarNearby)
+                            {
+                                //Console.WriteLine("familiarCanMove");
+                                foreach (var f in familiars)
+                                {
+                                    if (f.CanMove())
+                                    {
+                                        //f.Move(Game.MousePosition);
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                        }             
                         break;
                     }
                 case Order.MoveTarget:
@@ -131,26 +167,41 @@ namespace VisageSharp
             }
         }
 
+        private static void Drawing_OnDraw_Follow(EventArgs args)
+        {
+            if (!_loaded) return;
+            var familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
+
+            //if (familiars == null) return;
+            if (AutoLastHit.GetValue<KeyBind>().Active) return;
+            if (SoloKill.GetValue<KeyBind>().Active) return;
+            if (!FamiliarFollow.GetValue<KeyBind>().Active) return;
+
+            Drawing.DrawText("FollowMode(" + Utils.KeyToText(FamiliarFollow.GetValue<KeyBind>().Key) + ")", new Vector2(Drawing.Width - 100, 100) + new Vector2(-15, 15), new Vector2(20), new Color(255, 255, 0),
+                    FontFlags.AntiAlias | FontFlags.DropShadow | FontFlags.Additive | FontFlags.Custom |
+                    FontFlags.StrikeOut);
+        }
+
         private static void Drawing_OnDraw_familiarLastHit(EventArgs args)
         {
             if (!_loaded) return;
             var Familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
-
-            if (Menu.Item("Auto Familar Lasthit").GetValue<KeyBind>().Active)
+            if (FamiliarBeingAttackedDrawingEn)
+            {
+                Drawing.DrawText("Familiars", new Vector2(Drawing.Width - 100, 130) + new Vector2(-15, 15), new Vector2(20), new Color(255, 0, 0),
+                    FontFlags.AntiAlias | FontFlags.DropShadow | FontFlags.Additive | FontFlags.Custom |
+                    FontFlags.StrikeOut);
+                Drawing.DrawText("UnderAttack(" + Utils.KeyToText(AutoLastHit.GetValue<KeyBind>().Key) + ")", new Vector2(Drawing.Width - 120, 150) + new Vector2(-15, 15), new Vector2(20), new Color(255, 0, 0),
+                    FontFlags.AntiAlias | FontFlags.DropShadow | FontFlags.Additive | FontFlags.Custom |
+                    FontFlags.StrikeOut);
+            }else if (Menu.Item("Auto Familar Lasthit").GetValue<KeyBind>().Active)
             {
                 var startPos = new Vector2(Drawing.Width - 75, 150);
                 var size = new Vector2(150, 40);
-                if (familiarAttacked)
-                {
-                    Drawing.DrawText("Last Hit(" + Utils.KeyToText(AutoLastHit.GetValue<KeyBind>().Key) + ")", startPos + new Vector2(-15, 15), new Vector2(20), new Color(255, 0, 0),
+                Drawing.DrawText("Last Hit(" + Utils.KeyToText(AutoLastHit.GetValue<KeyBind>().Key) + ")", startPos + new Vector2(-15, 15), new Vector2(20), new Color(0, 155, 255),
                         FontFlags.AntiAlias | FontFlags.DropShadow | FontFlags.Additive | FontFlags.Custom |
                         FontFlags.StrikeOut);
-                }
-                else {
-                    Drawing.DrawText("Last Hit(" + Utils.KeyToText(AutoLastHit.GetValue<KeyBind>().Key) + ")", startPos + new Vector2(-15, 15), new Vector2(20), new Color(0, 155, 255),
-                        FontFlags.AntiAlias | FontFlags.DropShadow | FontFlags.Additive | FontFlags.Custom |
-                        FontFlags.StrikeOut);
-                }
+                
                 if(Familiars != null)
                 {
                     var name = "materials/ensage_ui/modifier_textures/visage_summon_familiars.vmat";
@@ -268,6 +319,88 @@ namespace VisageSharp
             }
         }
 
+        private static void Game_OnUpdate_Follow(EventArgs args)
+        {
+            _me = ObjectManager.LocalHero;
+            #region standard checks for loader and in-game status
+            if (!_loaded)
+            {
+                if (!Game.IsInGame || _me == null || _me.ClassID != ClassID.CDOTA_Unit_Hero_Visage)
+                {
+                    return;
+                }
+                _loaded = true;
+                Console.Write("VisageSharp Loaded");
+            }
+
+            if (!Game.IsInGame || _me == null)
+            {
+                _loaded = false;
+                return;
+            }
+            if (Game.IsPaused) return;
+            #endregion
+            //disable AutoLastHit
+            var familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
+
+            var AnyfamiliarNearby = ObjectManager.GetEntities<Unit>().Any(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar
+                                                                          && x.IsAlive && x.IsAlive && x.Team == _me.Team
+                                                                          && x.Distance2D(_me) <= 1000);
+          
+
+            
+            if (!FamiliarFollow.GetValue<KeyBind>().Active) {
+                FollowHasLock = true;
+                return;
+            }
+            if (FamiliarFollow.GetValue<KeyBind>().Active && AutoLastHit.GetValue<KeyBind>().Active)
+            {
+                FollowHasLock = false;
+                LasthitHasLock = true;
+            }
+            //disable auto last hit
+            if (LasthitHasLock)
+            {
+                if (Utils.SleepCheck("menu0"))
+                {
+                    if (AutoLastHit.GetValue<KeyBind>().Active)
+                    {
+                        AutoLastHit.SetValue(new KeyBind(AutoLastHit.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+                        //FamiliarFollow.SetValue(new KeyBind(FamiliarFollow.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+                    }
+                    Utils.Sleep(200, "menu0");
+                }
+                LasthitHasLock = false;
+            }
+
+            //FamiliarFollow.SetValue(new KeyBind(FamiliarFollow.GetValue<KeyBind>().Key, KeyBindType.Toggle, true));
+            if (!AutoLastHit.GetValue<KeyBind>().Active)
+            {
+                if (FamiliarBeingAttackedDrawingEn)
+                {
+                    FamiliarBeingAttackedDrawingEn = false;
+                }              
+            }
+
+            //if (!AnyfamiliarNearby)
+            //{
+                if (Utils.SleepCheck("fmove"))
+                {
+                    //Console.WriteLine("familiarCanMove");
+                    foreach (var f in familiars)
+                    {
+                        if (f.CanMove())
+                        {
+                            f.Follow(_me);
+                        }
+                    }
+                    Utils.Sleep(100, "fmove");
+                }
+            //}
+
+            
+        }
+
         private static void Game_OnUpdate_SoloKill(EventArgs args)
         {
             _me = ObjectManager.LocalHero;
@@ -297,7 +430,15 @@ namespace VisageSharp
                 killTarget = null;
                 return;
             }
-
+            //disable follow mode in Combo
+            if (AutoLastHit.GetValue<KeyBind>().Active)
+            {
+                AutoLastHit.SetValue(new KeyBind(AutoLastHit.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+            }
+            if (FamiliarFollow.GetValue<KeyBind>().Active && killTarget != null)
+            {
+                FamiliarFollow.SetValue(new KeyBind(FamiliarFollow.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+            }
             //disable auto auto last hit if familiar is near the enemy
             var AnyfamiliarNearby = ObjectManager.GetEntities<Unit>().Any(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar
                                                                           && x.IsAlive && x.IsAlive && x.Team == _me.Team
@@ -305,6 +446,7 @@ namespace VisageSharp
             if (AnyfamiliarNearby)
             {
                 AutoLastHit.SetValue(new KeyBind(AutoLastHit.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+
             }
 
             var hasLens = _me.Inventory.Items.Any(x => x.Name == "item_aether_lens");
@@ -352,7 +494,7 @@ namespace VisageSharp
                     Console.WriteLine("orbwalking");
                     if (_me.IsAlive && Utils.SleepCheck("Orbwalk"))
                     {
-                        //Orbwalking.Orbwalk(killTarget, 0, 0, false, true);
+                        Orbwalking.Orbwalk(killTarget, 0, 0, false, true);
                         Utils.Sleep(100, "Orbwalk");
                     }
                 }
@@ -360,7 +502,7 @@ namespace VisageSharp
                 {
                     if (_me.IsAlive && Utils.SleepCheck("Orbwalk"))
                     {
-                        //Orbwalking.Attack(killTarget, false);
+                        Orbwalking.Attack(killTarget, false);
                         Utils.Sleep(100, "Orbwalk");
                     }                 
                 }
@@ -386,7 +528,8 @@ namespace VisageSharp
                         Utils.Sleep(200, "soulassumption");
                     }
                 }
-                else if (_me.IsAlive && soulAssumption.StackCount == 2 + _W.Level)
+                else if (_me.IsAlive && soulAssumption.StackCount == 2 + _W.Level && !killTarget.IsMagicImmune() && killTarget.IsAlive
+                         && !killTarget.IsIllusion && killTarget.Distance2D(_me) <= (hasLens ? 1080 : 900) + 100)
                 {
                     if (Utils.SleepCheck("soulassumption"))
                     {
@@ -402,6 +545,31 @@ namespace VisageSharp
             #endregion
 
             #region familiar
+            var familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
+
+            if (familiars.Any<Unit>(f => f.Spellbook.SpellQ.CanBeCasted() && (f.BonusDamage < 20 || f.Health <= 3))) // stone? 
+            {
+                _R = _me.Spellbook.SpellR;
+                if (Utils.SleepCheck("fstone") && _R.Cooldown <= 200 - _R.Level * 20 - 5)
+                {
+                    foreach (var f in familiars)
+                    {
+                        if ((f.BonusDamage < 20 || f.Health <= 3) && (_R.Cooldown == 0 || _R.Cooldown <= 200 - _R.Level * 20 - 5))
+                        {
+                            //Console.WriteLine("spell + " + f.Spellbook.SpellQ.Name);
+                            f.Spellbook.SpellQ.UseAbility();
+                        }
+                        if (familiars != null)
+                        {
+
+                        }
+                    }
+                    Utils.Sleep(100, "fstone");
+                }
+            }
+
+
+
 
             var _familiarNearby = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar 
                                                                           && x.IsAlive && x.IsAlive && x.Team == _me.Team
@@ -464,9 +632,32 @@ namespace VisageSharp
 
             if (!AutoLastHit.GetValue<KeyBind>().Active)
             {
+                LasthitHasLock = true;
                 return;
             }
+            if (FamiliarFollow.GetValue<KeyBind>().Active && AutoLastHit.GetValue<KeyBind>().Active)
+            {
+                FollowHasLock = true;
+                LasthitHasLock = false;
+            }
+            //disable another menu
+            if (FollowHasLock)
+            {
+                if (Utils.SleepCheck("menu"))
+                {
+                    if (FamiliarFollow.GetValue<KeyBind>().Active)
+                    {
+                        FamiliarFollow.SetValue(new KeyBind(FamiliarFollow.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+                        //FamiliarFollow.SetValue(new KeyBind(FamiliarFollow.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+                    }
+                    Utils.Sleep(400, "menu");
+                }
+                FollowHasLock = false;
+            }
             //familiarAttacked = false;
+            //disable follow mode
+
+            FamiliarBeingAttackedDrawingEn = false;
             var familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
             if (familiars == null) return;
             var _familar = familiars.FirstOrDefault();
@@ -705,41 +896,63 @@ namespace VisageSharp
 
             var familiars = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
             if (familiars == null) return;
-            var _familar = familiars.FirstOrDefault();
-            if (_familar == null) return;
+            var _familiar = familiars.FirstOrDefault();
+            if (_familiar == null) return;
             // auto dodge when Hero attacks
-            var AnyRangedHeroAttackingMe = ObjectManager.TrackingProjectiles.Any(x => x.Target.Name.Equals(_familar.Name) && ObjectManager.GetEntities<Hero>().Any(y => y.Team != _me.Team && y.Name == x.Source.Name));
+            
+            var AnyRangedHeroAttackingMe = ObjectManager.TrackingProjectiles.Any(x => x.Target.Name.Equals(_familiar.Name) && ObjectManager.GetEntities<Hero>().Any(y => y.Team != _me.Team && y.Name == x.Source.Name));
             // if hero attacking Me
-            if (AnyRangedHeroAttackingMe || ObjectManager.GetEntities<Hero>().Any(x => x.IsAttacking() && x.Distance2D(_familar) <= x.AttackRange && x.Team != _me.Team && x.IsMelee))
-            {
-                familiarAttacked = true;
-                // go to the closet tower and disable auto last hit
-                var ClosestAllyTower = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_BaseNPC_Tower
-                                                                                    && x.Team == _me.Team
-                                                                                    ).OrderBy(y => y.Distance2D(_familar))
-                                                                                   .FirstOrDefault();
-                if (ClosestAllyTower == null)
+            //NotinComboMode
+            if (!Menu.Item("SoloKill").GetValue<KeyBind>().Active) {
+                if (AnyRangedHeroAttackingMe || ObjectManager.GetEntities<Hero>().Any(x => x.IsAttacking() && x.Distance2D(_familiar) <= x.AttackRange && x.Team != _me.Team && x.IsMelee))
                 {
-                    return;
-                }
-                else
-                {
-                    if (Utils.SleepCheck("move"))
+                    familiarAttacked = true;
+                    // go to the closet tower and disable auto last hit
+                    var ClosestAllyTower = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_BaseNPC_Tower
+                                                                                        && x.Team == _me.Team
+                                                                                        ).OrderBy(y => y.Distance2D(_familiar))
+                                                                                       .FirstOrDefault();
+                    if (ClosestAllyTower == null)
                     {
-                        foreach (var f in familiars)
+                        if (Utils.SleepCheck("move"))
                         {
-
-                            if (f.CanMove())
+                            foreach (var f in familiars)
                             {
-                                f.Follow(ClosestAllyTower);
-                            }
 
+                                if (f.CanMove())
+                                {
+                                    f.Follow(ObjectManager.GetEntities<Unit>().Where(_x => _x.ClassID == ClassID.CDOTA_Unit_Fountain && _x.Team == _me.Team).FirstOrDefault());
+                                }
+
+                            }
+                            Utils.Sleep(100, "move");
                         }
-                        Utils.Sleep(100, "move");
                     }
-                    AutoLastHit.SetValue(new KeyBind(AutoLastHit.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
-                    return;
+                    else
+                    {
+                        if (Utils.SleepCheck("move"))
+                        {
+                            foreach (var f in familiars)
+                            {
+
+                                if (f.CanMove())
+                                {
+                                    f.Follow(ClosestAllyTower);
+                                }
+
+                            }
+                            Utils.Sleep(100, "move");
+                        }
+                        //Show Familiar Being attacked, until autolast hit is reenabled again
+                        if(familiars != null) FamiliarBeingAttackedDrawingEn = true;
+                        AutoLastHit.SetValue(new KeyBind(AutoLastHit.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+                        return;
+                    }
                 }
+            }
+            else
+            {
+                return;
             }
         }
 
@@ -804,7 +1017,7 @@ namespace VisageSharp
 
             var NearbyEnemy = ObjectManager.GetEntities<Hero>().Where(x => !x.IsMagicImmune() && x.IsAlive
                                                                            && !x.IsIllusion && x.Team != _me.Team
-                                                                           && x.Distance2D(_me) <= (hasLens ? 1080 : 900));
+                                                                           && x.Distance2D(_me) <= (hasLens ? 1080 : 900) + 100);
             if (NearbyEnemy == null) return;
             var MinHpTargetNearbyEnemy = NearbyEnemy.OrderBy(x => x.Health).FirstOrDefault();
             if (MinHpTargetNearbyEnemy == null) return;
