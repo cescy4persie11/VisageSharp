@@ -36,7 +36,7 @@ namespace VisageSharp
         private static bool FollowHasLock;
         private static bool LasthitHasLock;
         private static bool FamiliarBeingAttackedDrawingEn;
-        private static bool Lck;
+        
         //private static bool hasLens;
 
 
@@ -50,10 +50,10 @@ namespace VisageSharp
         static void Main(string[] args)
         {
             Menu.AddItem(AutoLastHit.SetValue(new KeyBind('W', KeyBindType.Toggle)));
-            Menu.AddItem(AutoSoulAssump.SetValue(new KeyBind('E', KeyBindType.Toggle, true)));
-            Menu.AddItem(SoloKill.SetValue(new KeyBind('D', KeyBindType.Toggle)));
+            Menu.AddItem(AutoSoulAssump.SetValue(new KeyBind('X', KeyBindType.Toggle, true)).SetTooltip("always spit max-nuke, recommend always on"));
+            Menu.AddItem(SoloKill.SetValue(new KeyBind('D', KeyBindType.Toggle)).SetTooltip("Enabled in team fight, damage mode"));
             Menu.AddItem(new MenuItem("LockTarget", "Lock Target in Combo").SetValue(true).SetTooltip("This will lock the target while in combo"));
-            Menu.AddItem(FamiliarFollow.SetValue(new KeyBind('X', KeyBindType.Toggle, true)));
+            Menu.AddItem(FamiliarFollow.SetValue(new KeyBind('E', KeyBindType.Toggle, true)).SetTooltip("let familiars follow you in position, but never auto-attack"));
             Menu.AddToMainMenu();
             Drawing.OnDraw += Drawing_OnDraw_familiarLastHit;
             Drawing.OnDraw += Drawing_OnDraw_AutoSoulAssump;
@@ -120,10 +120,8 @@ namespace VisageSharp
                     {
                         if (EnemyNearby.Count() == 0)
                         {
-                            //Console.WriteLine("enemyNearbyNull");
                             if (Menu.Item("FamiliarFollow").GetValue<KeyBind>().Active && familiars != null && AnyfamiliarNearby)
                             {
-                                //Console.WriteLine("familiarCanMove");
                                 foreach (var f in familiars)
                                 {
                                     if (f.CanMove())
@@ -386,7 +384,6 @@ namespace VisageSharp
             //{
                 if (Utils.SleepCheck("fmove"))
                 {
-                    //Console.WriteLine("familiarCanMove");
                     foreach (var f in familiars)
                     {
                         if (f.CanMove())
@@ -423,14 +420,18 @@ namespace VisageSharp
             if (Game.IsPaused) return;
             #endregion
 
-            
-            
+
+            var AnyfamiliarNearby = ObjectManager.GetEntities<Unit>().Any(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar
+                                                                          && x.IsAlive && x.IsAlive && x.Team == _me.Team
+                                                                          && x.Distance2D(_me) <= 1000);
+
             if (!Menu.Item("SoloKill").GetValue<KeyBind>().Active)
             {
-                killTarget = null;
+                killTarget = null;               
                 return;
             }
             //disable follow mode in Combo
+            VisageItems Items = new VisageItems();
             if (AutoLastHit.GetValue<KeyBind>().Active)
             {
                 AutoLastHit.SetValue(new KeyBind(AutoLastHit.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
@@ -440,9 +441,6 @@ namespace VisageSharp
                 FamiliarFollow.SetValue(new KeyBind(FamiliarFollow.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
             }
             //disable auto auto last hit if familiar is near the enemy
-            var AnyfamiliarNearby = ObjectManager.GetEntities<Unit>().Any(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar
-                                                                          && x.IsAlive && x.IsAlive && x.Team == _me.Team
-                                                                          && x.Distance2D(_me) <= 1000);
             if (AnyfamiliarNearby)
             {
                 AutoLastHit.SetValue(new KeyBind(AutoLastHit.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
@@ -462,14 +460,22 @@ namespace VisageSharp
             if (killTarget == null || !killTarget.IsValid || !killTarget.IsAlive)
             {
                 SoloKill.SetValue(new KeyBind(SoloKill.GetValue<KeyBind>().Key, KeyBindType.Toggle, false));
+                //enable the follow mode?
+                FamiliarFollow.SetValue(new KeyBind(FamiliarFollow.GetValue<KeyBind>().Key, KeyBindType.Toggle, true));
                 return;
             }
 
             //grave chill, birds attacking, stone, soul assumption, resummon
             //var familiarNearBy = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar
             //                                                            && x.IsAlive && x.CanAttack() && x.Team == _me.Team
-             //                                                          && x.Distance2D(killTarget) <= 1200);
+            //                                                          && x.Distance2D(killTarget) <= 1200);
             //grave chill
+
+            //Items
+            Items.Medalion(killTarget);
+            Items.RodOfAtos(killTarget);
+            Items.SolarCrest(killTarget);
+
             #region grave chill
 
             if (_me.IsAlive && killTarget.Distance2D(_me) <= 600 + (hasLens ? 180 : 0) && _Q.CanBeCasted() && !killTarget.IsMagicImmune())
@@ -491,7 +497,6 @@ namespace VisageSharp
                     }
                 }else if (_me.IsAlive && Orbwalking.AttackOnCooldown())
                 {
-                    Console.WriteLine("orbwalking");
                     if (_me.IsAlive && Utils.SleepCheck("Orbwalk"))
                     {
                         Orbwalking.Orbwalk(killTarget, 0, 0, false, true);
@@ -556,7 +561,6 @@ namespace VisageSharp
                     {
                         if ((f.BonusDamage < 20 || f.Health <= 3) && (_R.Cooldown == 0 || _R.Cooldown <= 200 - _R.Level * 20 - 5))
                         {
-                            //Console.WriteLine("spell + " + f.Spellbook.SpellQ.Name);
                             f.Spellbook.SpellQ.UseAbility();
                         }
                         if (familiars != null)
@@ -679,7 +683,6 @@ namespace VisageSharp
                     {
                         if ((f.BonusDamage < 20 || f.Health <= 3) && (_R.Cooldown == 0 || _R.Cooldown <= (_R.Level * 14 + 83)))
                         {
-                            //Console.WriteLine("spell + " + f.Spellbook.SpellQ.Name);
                             f.Spellbook.SpellQ.UseAbility();
                         }
                         if(familiars != null)
@@ -705,17 +708,13 @@ namespace VisageSharp
 
             if (!anyAllyCreepsAround)
             {
-                //Console.WriteLine("no ally creeps around");
                 // go to the closest ally creep
                 var closestAllyCreep = ObjectManager.GetEntities<Unit>().Where(_x =>
                                                                           _x.ClassID == ClassID.CDOTA_BaseNPC_Creep_Lane
                                                                           && _x.IsAlive
                                                                           && _x.Name.Equals("npc_dota_creep_badguys_melee")).
                                                                           OrderBy(x => x.Distance2D(_familar)).FirstOrDefault();
-                //Console.WriteLine("found ally creeps + " + closestAllyCreeps.Name);
                 if (closestAllyCreep == null) return;
-                //Console.WriteLine("Going to the closest ally");
-                //Console.WriteLine("health is" + _familar.Health + _familar.Name);
                 if (Utils.SleepCheck("move"))
                 {
                     foreach (var f in familiars)
@@ -1010,8 +1009,6 @@ namespace VisageSharp
             }
 
             var hasLens = _me.FindItem("item_aether_lens") != null;
-            //var hasLens = true;
-            //Console.WriteLine("has lens" + _me.HasItem(ClassID.CDOTA_Item_Aether_Lens));
             _W = _me.Spellbook.SpellW;
            
 
