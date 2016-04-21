@@ -39,7 +39,6 @@ namespace VisageSharp
         
         //private static bool hasLens;
 
-
         private static readonly string Ver = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         private static readonly Menu Menu = new Menu("VisageSharp", "VisageSharp", true, "npc_dota_hero_visage", true);
         private static readonly MenuItem AutoLastHit = new MenuItem("Auto Familar Lasthit", "Auto Familar Lasthit");
@@ -49,6 +48,7 @@ namespace VisageSharp
 
         static void Main(string[] args)
         {
+            //if (ObjectManager.LocalHero.ClassID == ClassID.CDOTA_Unit_Hero_Visage) ;
             Menu.AddItem(AutoLastHit.SetValue(new KeyBind('W', KeyBindType.Toggle)));
             Menu.AddItem(AutoSoulAssump.SetValue(new KeyBind('X', KeyBindType.Toggle, true)).SetTooltip("always spit max-nuke, recommend always on"));
             Menu.AddItem(SoloKill.SetValue(new KeyBind('D', KeyBindType.Toggle)).SetTooltip("Enabled in team fight, damage mode"));
