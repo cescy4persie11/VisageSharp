@@ -596,7 +596,7 @@ namespace VisageSharp
 
             var _familiarNearby = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar 
                                                                           && x.IsAlive && x.IsAlive && x.Team == _me.Team
-                                                                          && x.Distance2D(killTarget) <= 1000);
+                                                                          && x.Distance2D(_me) <= 1000);
             if (_familiarNearby == null)
             {
                 if(_R.Cooldown != 0 || !_R.CanBeCasted())
