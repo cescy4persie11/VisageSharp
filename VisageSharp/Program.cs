@@ -48,26 +48,23 @@ namespace VisageSharp
 
         static void Main(string[] args)
         {
-            if (ObjectManager.LocalHero.ClassID == ClassID.CDOTA_Unit_Hero_Visage)
-            {
-                Menu.AddItem(AutoLastHit.SetValue(new KeyBind('W', KeyBindType.Toggle)));
-                Menu.AddItem(AutoSoulAssump.SetValue(new KeyBind('X', KeyBindType.Toggle, true)).SetTooltip("always spit max-nuke, recommend always on"));
-                Menu.AddItem(SoloKill.SetValue(new KeyBind('D', KeyBindType.Toggle)).SetTooltip("Enabled in team fight, damage mode"));
-                Menu.AddItem(new MenuItem("LockTarget", "Lock Target in Combo").SetValue(true).SetTooltip("This will lock the target while in combo"));
-                Menu.AddItem(FamiliarFollow.SetValue(new KeyBind('E', KeyBindType.Toggle, true)).SetTooltip("let familiars follow you in position, but never auto-attack"));
-                Menu.AddToMainMenu();
-                Drawing.OnDraw += Drawing_OnDraw_familiarLastHit;
-                Drawing.OnDraw += Drawing_OnDraw_AutoSoulAssump;
-                Drawing.OnDraw += Drawing_OnDraw_SoloKill;
-                Drawing.OnDraw += Drawing_OnDraw_Follow;
-                Game.OnUpdate += Game_OnUpdate_Infos;
-                Player.OnExecuteOrder += Player_OnExecuteAction;
-                Game.OnUpdate += Game_OnUpdate_AutoFamaliarLastHit;
-                Game.OnUpdate += Game_OnUpdate_NukeOn;
-                Game.OnUpdate += Game_OnUpdate_SoloKill;
-                Game.OnUpdate += Game_OnUpdate_FamiliarControl;
-                Game.OnUpdate += Game_OnUpdate_Follow;
-            }
+            Menu.AddItem(AutoLastHit.SetValue(new KeyBind('W', KeyBindType.Toggle)));
+            Menu.AddItem(AutoSoulAssump.SetValue(new KeyBind('X', KeyBindType.Toggle, true)).SetTooltip("always spit max-nuke, recommend always on"));
+            Menu.AddItem(SoloKill.SetValue(new KeyBind('D', KeyBindType.Toggle)).SetTooltip("Enabled in team fight, damage mode"));
+            Menu.AddItem(new MenuItem("LockTarget", "Lock Target in Combo").SetValue(true).SetTooltip("This will lock the target while in combo"));
+            Menu.AddItem(FamiliarFollow.SetValue(new KeyBind('E', KeyBindType.Toggle, true)).SetTooltip("let familiars follow you in position, but never auto-attack"));
+            Menu.AddToMainMenu();
+            Drawing.OnDraw += Drawing_OnDraw_familiarLastHit;
+            Drawing.OnDraw += Drawing_OnDraw_AutoSoulAssump;
+            Drawing.OnDraw += Drawing_OnDraw_SoloKill;
+            Drawing.OnDraw += Drawing_OnDraw_Follow;
+            Game.OnUpdate += Game_OnUpdate_Infos;
+            Player.OnExecuteOrder += Player_OnExecuteAction;
+            Game.OnUpdate += Game_OnUpdate_AutoFamaliarLastHit;
+            Game.OnUpdate += Game_OnUpdate_NukeOn;
+            Game.OnUpdate += Game_OnUpdate_SoloKill;
+            Game.OnUpdate += Game_OnUpdate_FamiliarControl;
+            Game.OnUpdate += Game_OnUpdate_Follow;
         }
 
         private static void Player_OnExecuteAction(Player sender, ExecuteOrderEventArgs args)
@@ -124,7 +121,7 @@ namespace VisageSharp
                         {
                             if (EnemyNearby.Count() == 0)
                             {
-                                if (Menu.Item("FamiliarFollow").GetValue<KeyBind>().Active && familiars != null && AnyfamiliarNearby)
+                                if (Menu.Item("FamiliarFollow").GetValue<KeyBind>().Active && familiars != null)
                                 {
                                     foreach (var f in familiars)
                                     {
@@ -430,9 +427,16 @@ namespace VisageSharp
                                                                           && x.IsAlive && x.IsAlive && x.Team == _me.Team
                                                                           && x.Distance2D(_me) <= 1000);
 
+            
+
             if (!Menu.Item("SoloKill").GetValue<KeyBind>().Active)
             {
-                killTarget = null;               
+                killTarget = null;
+                //follow mode when familiar nearby
+                if (!AutoLastHit.GetValue<KeyBind>().Active && AnyfamiliarNearby && !FamiliarFollow.GetValue<KeyBind>().Active)
+                {
+                    FamiliarFollow.SetValue(new KeyBind(FamiliarFollow.GetValue<KeyBind>().Key, KeyBindType.Toggle, true));
+                }
                 return;
             }
             //disable follow mode in Combo
