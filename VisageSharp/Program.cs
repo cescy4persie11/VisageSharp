@@ -427,13 +427,16 @@ namespace VisageSharp
                                                                           && x.IsAlive && x.IsAlive && x.Team == _me.Team
                                                                           && x.Distance2D(_me) <= 1000);
 
-            
+            var _Q = _me.Spellbook.SpellQ;
+            var _W = _me.Spellbook.SpellW;
 
             if (!Menu.Item("SoloKill").GetValue<KeyBind>().Active)
             {
                 killTarget = null;
-                //follow mode when familiar nearby
-                if (!AutoLastHit.GetValue<KeyBind>().Active && AnyfamiliarNearby && !FamiliarFollow.GetValue<KeyBind>().Active)
+                //switch to follow mode when disable the Combo in middle of them, familiar nearby
+                if (!AutoLastHit.GetValue<KeyBind>().Active && AnyfamiliarNearby 
+                    && !FamiliarFollow.GetValue<KeyBind>().Active
+                    && (_Q.Cooldown !=0 || _W.Cooldown != 0))
                 {
                     FamiliarFollow.SetValue(new KeyBind(FamiliarFollow.GetValue<KeyBind>().Key, KeyBindType.Toggle, true));
                 }
@@ -457,8 +460,8 @@ namespace VisageSharp
             }
 
             var hasLens = _me.Inventory.Items.Any(x => x.Name == "item_aether_lens");
-            var _Q = _me.Spellbook.SpellQ;
-            var _W = _me.Spellbook.SpellW;
+            //var _Q = _me.Spellbook.SpellQ;
+            //var _W = _me.Spellbook.SpellW;
             var _R = _me.Spellbook.SpellR;
             
             //lockdown target
