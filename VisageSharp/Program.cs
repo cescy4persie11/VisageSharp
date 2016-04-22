@@ -422,8 +422,15 @@ namespace VisageSharp
             if (Game.IsPaused) return;
             #endregion
 
+            var allFamiliar = ObjectManager.GetEntities<Unit>().Where(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar && x.IsAlive && x.Team == _me.Team);
 
             var AnyfamiliarNearby = ObjectManager.GetEntities<Unit>().Any(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar
+                                                                          && x.IsAlive && x.IsAlive && x.Team == _me.Team
+                                                                          && x.Distance2D(_me) <= 500);
+            var EnemyNearfamiliar = ObjectManager.GetEntities<Hero>().Any(x => x.IsAlive
+                                                                          && x.Team != _me.Team
+                                                                          && allFamiliar.Any(y => x.Distance2D(y) <= 600));
+            var AnyFamiliarNearAnyEnemy = ObjectManager.GetEntities<Unit>().Any(x => x.ClassID == ClassID.CDOTA_Unit_VisageFamiliar
                                                                           && x.IsAlive && x.IsAlive && x.Team == _me.Team
                                                                           && x.Distance2D(_me) <= 1000);
 
@@ -436,7 +443,7 @@ namespace VisageSharp
                 //switch to follow mode when disable the Combo in middle of them, familiar nearby
                 if (!AutoLastHit.GetValue<KeyBind>().Active && AnyfamiliarNearby 
                     && !FamiliarFollow.GetValue<KeyBind>().Active
-                    && (_Q.Cooldown !=0 || _W.Cooldown != 0))
+                    && (EnemyNearfamiliar || _Q.Cooldown != 0 || _W.Cooldown != 0))
                 {
                     FamiliarFollow.SetValue(new KeyBind(FamiliarFollow.GetValue<KeyBind>().Key, KeyBindType.Toggle, true));
                 }
